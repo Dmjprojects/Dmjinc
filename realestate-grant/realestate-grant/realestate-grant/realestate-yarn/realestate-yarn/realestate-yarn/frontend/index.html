@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PropertyNode - Real Estate Verification</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        h1 { 
+            color: #2563eb; 
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .card {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid #e2e8f0;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        input:focus, textarea:focus, select:focus {
+            border-color: #2563eb;
+            outline: none;
+        }
+        button {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            margin: 10px 0;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+        }
+        button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .property-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 15px 0;
+            border-left: 4px solid #2563eb;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #2563eb;
+        }
+        .network-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #10b981;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+        .wallet-info {
+            background: #dbeafe;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="network-indicator">🔗 PropertyNode Network</div>
+    
+    <div class="container">
+        <h1>🏠 PropertyNode</h1>
+        <p class="subtitle">Decentralized Real Estate Verification Protocol</p>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="totalProperties">0</div>
+                <div>Properties Registered</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="totalValue">0 ETH</div>
+                <div>Total Value Locked</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>🔗 Connect Wallet</h3>
+            <button id="connectWallet">Connect MetaMask</button>
+            <div id="walletInfo" class="wallet-info" style="display: none;">
+                Connected: <span id="walletAddress"></span>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>📝 Register New Property</h3>
+            <input type="text" id="propertyId" placeholder="Property ID (e.g., OH-123-MAIN-ST)">
+            <input type="text" id="propertyAddress" placeholder="Full Physical Address">
+            <input type="number" id="propertyValue" placeholder="Estimated Value (ETH)">
+            <input type="number" id="verificationScore" placeholder="Verification Score (0-100)">
+            <textarea id="dataHash" placeholder="IPFS Data Hash" rows="2"></textarea>
+            <button id="registerProperty" disabled>🚀 Register Property on Blockchain</button>
+        </div>
+
+        <div class="card">
+            <h3>🔍 Verify Property</h3>
+            <input type="text" id="verifyPropertyId" placeholder="Enter Property ID to verify">
+            <button id="verifyProperty">Verify Property</button>
+            <div id="verificationResult" style="margin-top: 15px;"></div>
+        </div>
+
+        <div id="propertiesList">
+            <h3>🏘️ Registered Properties</h3>
+            <div id="properties"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { ethers } from './node_modules/ethers/dist/ethers.min.js';
+
+        // Contract ABI (simplified version - you'll replace this with your actual ABI)
+        const contractABI = [
+            "function verifyProperty(string memory _propertyId, uint256 _estimatedValue, uint256 _verificationScore, string memory _dataHash) external",
+            "function getPropertyVerification(string memory _propertyId) external view returns (uint256 value, uint256 score, bool verified, string memory dataHash)",
+            "function getVerifiedPropertiesCount() external view returns (uint256)",
+            "function properties(string memory) external view returns (string memory propertyId, uint256 estimatedValue, uint256 verificationScore, string memory dataHash, bool isVerified, uint256 lastUpdate)",
+            "event PropertyVerified(string indexed propertyId, uint256 value, uint256 score, address verifiedBy)"
+        ];
+
+        // Update this with your actual contract address after deployment
+        const contractAddress = "YOUR_CONTRACT_ADDRESS_HERE";
+
+        let provider;
+        let signer;
+        let contract;
+        let userAddress;
+
+        // Connect Wallet
+        document.getElementById('connectWallet').addEventListener('click', connectWallet);
+        document.getElementById('registerProperty').addEventListener('click', registerProperty);
+        document.getElementById('verifyProperty').addEventListener('click', verifyProperty);
+
+        async function connectWallet() {
+            if (typeof window.ethereum !== 'undefined') {
+                try {
+                    provider = new ethers.BrowserProvider(window.ethereum);
+                    await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    signer = await provider.getSigner();
+                    userAddress = await signer.getAddress();
+                    
+                    contract = new ethers.Contract(contractAddress, contractABI, signer);
+                    
+                    document.getElementById('walletAddress').textContent = 
+                        userAddress.substring(0, 6) + '...' + userAddress.substring(38);
+                    document.getElementById('walletInfo').style.display = 'block';
+                    document.getElementById('registerProperty').disabled = false;
+                    
+                    updateStats();
+                    
+                } catch (error) {
+                    console.error('Error connecting wallet:', error);
+                    alert('Error connecting wallet: ' + error.message);
+                }
+            } else {
+                alert('Please install MetaMask!');
+            }
+        }
+
+        async function registerProperty() {
+            const propertyId = document.getElementById('propertyId').value;
+            const propertyAddress = document.getElementById('propertyAddress').value;
+            const propertyValue = document.getElementById('propertyValue').value;
+            const verificationScore = document.getElementById('verificationScore').value;
+            const dataHash = document.getElementById('dataHash').value;
+
+            if (!propertyId || !propertyValue || !verificationScore) {
+                alert('Please fill in all required fields');
+                return;
+            }
+
+            try {
+                const tx = await contract.verifyProperty(
+                    propertyId,
+                    ethers.parseEther(propertyValue),
+                    verificationScore,
+                    dataHash || "QmDefaultHash..."
+                );
+                
+                alert('Property registration submitted! Transaction: ' + tx.hash);
+                await tx.wait();
+                alert('✅ Property successfully registered on blockchain!');
+                
+                // Clear form
+                document.getElementById('propertyId').value = '';
+                document.getElementById('propertyAddress').value = '';
+                document.getElementById('propertyValue').value = '';
+                document.getElementById('verificationScore').value = '';
+                document.getElementById('dataHash').value = '';
+                
+                updateStats();
+                
+            } catch (error) {
+                console.error('Error registering property:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function verifyProperty() {
+            const propertyId = document.getElementById('verifyPropertyId').value;
+            
+            if (!propertyId) {
+                alert('Please enter a Property ID');
+                return;
+            }
+
+            try {
+                const [value, score, verified, dataHash] = await contract.getPropertyVerification(propertyId);
+                
+                const resultDiv = document.getElementById('verificationResult');
+                resultDiv.innerHTML = `
+                    <div class="property-card">
+                        <strong>${propertyId}</strong><br>
+                        Value: ${ethers.formatEther(value)} ETH<br>
+                        Verification Score: ${score}/100<br>
+                        Status: ${verified ? '✅ Verified' : '❌ Not Verified'}<br>
+                        Data Hash: ${dataHash}<br>
+                        <small>Retrieved from blockchain</small>
+                    </div>
+                `;
+                
+            } catch (error) {
+                document.getElementById('verificationResult').innerHTML = 
+                    '<div style="color: red;">Property not found or error retrieving data</div>';
+            }
+        }
+
+        async function updateStats() {
+            try {
+                const count = await contract.getVerifiedPropertiesCount();
+                document.getElementById('totalProperties').textContent = count.toString();
+            } catch (error) {
+                console.error('Error updating stats:', error);
+            }
+        }
+
+        // Demo mode - remove this in production
+        function enableDemoMode() {
+            document.getElementById('verificationResult').innerHTML = `
+                <div class="property-card">
+                    <strong>DEMO: OH-123-MAIN-ST</strong><br>
+                    Value: 2.5 ETH<br>
+                    Verification Score: 85/100<br>
+                    Status: ✅ Verified<br>
+                    Data Hash: QmXyZ123...property-documents<br>
+                    <small>Demo data - connect wallet for real data</small>
+                </div>
+            `;
+        }
+
+        enableDemoMode();
+    </script>
+</body>
+</html>
